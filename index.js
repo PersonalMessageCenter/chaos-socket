@@ -15,11 +15,10 @@ const logger = require("./logger");
 const WS_PORT = process.env.WS_PORT || 4001;
 const METRICS_PORT = process.env.METRICS_PORT || 9101;
 
-// Configurações de chaos
-const FAILURE_RATE = parseFloat(process.env.FAILURE_RATE || "0.01"); // 1% de falhas
+// Configurações de controle de mensagens
 const MAX_DELAY_MS = parseInt(process.env.MAX_DELAY_MS || "200");
 const MIN_DELAY_MS = parseInt(process.env.MIN_DELAY_MS || "0");
-const MESSAGE_RATE = parseInt(process.env.MESSAGE_RATE || "1000"); // ms entre mensagens automáticas
+const MESSAGE_RATE = parseInt(process.env.MESSAGE_RATE || "12000"); // ms entre mensagens automáticas (padrão: 5 msg/min = 12000ms)
 const COMMAND_INTERVAL_MS = parseInt(process.env.COMMAND_INTERVAL_MS || "60000"); // 1 minuto entre comandos
 
 // Lista de comandos disponíveis
@@ -39,7 +38,6 @@ const wss = new WebSocket.Server({ port: WS_PORT });
 wss.on("listening", () => {
   logger.info("Chaos Socket WebSocket server started", {
     port: WS_PORT,
-    failureRate: `${FAILURE_RATE * 100}%`,
     delayRange: `${MIN_DELAY_MS}-${MAX_DELAY_MS}ms`,
     messageRate: `${MESSAGE_RATE}ms`
   });
@@ -82,16 +80,6 @@ wss.on("connection", (ws, req) => {
   // Simular envio de mensagens para os clientes conectados
   const messageInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
-      const shouldFail = Math.random() < FAILURE_RATE;
-      
-      if (shouldFail) {
-        logger.warn("Simulating connection failure", { connectionId });
-        errorsTotal.inc({ type: "random_failure" });
-        ws.close(1000, "Simulated failure");
-        clearInterval(messageInterval);
-        return;
-      }
-
       const now = Date.now();
       const timeSinceLastCommand = now - lastCommandTime;
       const shouldSendCommand = timeSinceLastCommand >= COMMAND_INTERVAL_MS;
@@ -168,26 +156,18 @@ wss.on("connection", (ws, req) => {
       // Se for uma requisição de teste de carga (do Locust via API), processar
       if (message.type === "load_test") {
         const delay = Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS) + MIN_DELAY_MS;
-        const shouldFail = Math.random() < FAILURE_RATE;
         
         setTimeout(() => {
-          if (shouldFail) {
-            messageLatency.observe({ status: "error" }, delay / 1000);
-            messagesReceived.inc({ status: "error" });
-            errorsTotal.inc({ type: "random_failure" });
-            ws.close(1000, "Simulated failure");
-          } else {
-            try {
-              ws.send(JSON.stringify({ type: "ack", originalId: message.id }));
-              messageLatency.observe({ status: "success" }, delay / 1000);
-              messagesReceived.inc({ status: "success" });
-            } catch (err) {
-              errorsTotal.inc({ type: "send_error" });
-              logger.error("Error sending ACK", {
-                connectionId,
-                error: err.message
-              });
-            }
+          try {
+            ws.send(JSON.stringify({ type: "ack", originalId: message.id }));
+            messageLatency.observe({ status: "success" }, delay / 1000);
+            messagesReceived.inc({ status: "success" });
+          } catch (err) {
+            errorsTotal.inc({ type: "send_error" });
+            logger.error("Error sending ACK", {
+              connectionId,
+              error: err.message
+            });
           }
         }, delay);
       }
@@ -270,7 +250,6 @@ metricsApp.post("/api/send-message", (req, res) => {
 metricsApp.get("/api/status", (req, res) => {
   res.json({
     activeConnections: activeConnectionsMap.size,
-    failureRate: FAILURE_RATE,
     delayRange: `${MIN_DELAY_MS}-${MAX_DELAY_MS}ms`,
     messageRate: `${MESSAGE_RATE}ms`
   });

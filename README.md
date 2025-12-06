@@ -1,13 +1,13 @@
 # Chaos Socket
 
-Serviço Node.js que simula um servidor WebSocket com características de chaos engineering para testes de carga e simulação de comportamento realista de sistemas distribuídos.
+Serviço Node.js que simula um servidor WebSocket para testes de carga e simulação de comportamento realista de sistemas distribuídos.
 
 ## Características
 
 - Servidor WebSocket que simula comportamento realista de sistemas externos
 - Envia mensagens automaticamente para clientes conectados
+- Taxa de mensagens configurável (controle de carga)
 - Latência aleatória configurável
-- Taxa de falhas configurável (chaos engineering)
 - Métricas Prometheus expostas em `/metrics`
 - API HTTP para controle e geração de carga programática
 
@@ -21,10 +21,9 @@ Serviço Node.js que simula um servidor WebSocket com características de chaos 
 - `WS_PORT` - Porta do servidor WebSocket (padrão: 4001)
 - `METRICS_PORT` - Porta do servidor de métricas e API (padrão: 9101)
 - `API_PORT` - Porta separada para API (opcional, usa METRICS_PORT se não definido)
-- `FAILURE_RATE` - Taxa de falhas (0.0 a 1.0, padrão: 0.01 = 1%)
+- `MESSAGE_RATE` - Intervalo entre mensagens automáticas em ms (padrão: 12000 = 5 msg/min). Controla a taxa de carga
 - `MAX_DELAY_MS` - Delay máximo em milissegundos (padrão: 200)
 - `MIN_DELAY_MS` - Delay mínimo em milissegundos (padrão: 0)
-- `MESSAGE_RATE` - Intervalo entre mensagens automáticas em ms (padrão: 1000)
 - `LOG_LEVEL` - Nível de log (error, warn, info, verbose, debug, silly, padrão: info)
 - `NODE_ENV` - Ambiente de execução (development, production)
 
