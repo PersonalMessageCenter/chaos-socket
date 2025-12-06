@@ -1,7 +1,8 @@
 const WebSocket = require("ws");
 const { 
   messageLatency, 
-  messagesReceived, 
+  messagesReceived,
+  messagesSent,
   connectionsTotal, 
   activeConnections,
   errorsTotal,
@@ -128,7 +129,7 @@ wss.on("connection", (ws, req) => {
         const latency = (Date.now() - startTime) / 1000;
         
         messageLatency.observe({ status: "success" }, latency);
-        messagesReceived.inc({ status: "sent" });
+        messagesSent.inc({ status: "success" });
         
         logger.debug("Simulated message sent to client", {
           connectionId,
@@ -139,7 +140,7 @@ wss.on("connection", (ws, req) => {
       } catch (err) {
         const latency = (Date.now() - startTime) / 1000;
         messageLatency.observe({ status: "error" }, latency);
-        messagesReceived.inc({ status: "error" });
+        messagesSent.inc({ status: "error" });
         errorsTotal.inc({ type: "send_error" });
         logger.error("Error sending simulated message", {
           connectionId,
@@ -244,12 +245,14 @@ metricsApp.post("/api/send-message", (req, res) => {
           
           // Incrementar métricas para mensagens enviadas via API HTTP
           messageLatency.observe({ status: "success" }, latency);
-          messagesReceived.inc({ status: "sent" });
+          messagesReceived.inc({ status: "received" }); // Recebida via API HTTP
+          messagesSent.inc({ status: "success" }); // Enviada via WebSocket
           sent++;
         } catch (err) {
           const latency = (Date.now() - startTime) / 1000;
           messageLatency.observe({ status: "error" }, latency);
-          messagesReceived.inc({ status: "error" });
+          messagesReceived.inc({ status: "received" }); // Recebida via API HTTP
+          messagesSent.inc({ status: "error" }); // Falha ao enviar via WebSocket
           errorsTotal.inc({ type: "send_error" });
           logger.error("Error sending message via API", { error: err.message });
         }
