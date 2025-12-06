@@ -19,6 +19,10 @@ const FAILURE_RATE = parseFloat(process.env.FAILURE_RATE || "0.01"); // 1% de fa
 const MAX_DELAY_MS = parseInt(process.env.MAX_DELAY_MS || "200");
 const MIN_DELAY_MS = parseInt(process.env.MIN_DELAY_MS || "0");
 const MESSAGE_RATE = parseInt(process.env.MESSAGE_RATE || "1000"); // ms entre mensagens automáticas
+const COMMAND_INTERVAL_MS = parseInt(process.env.COMMAND_INTERVAL_MS || "60000"); // 1 minuto entre comandos
+
+// Lista de comandos disponíveis
+const AVAILABLE_COMMANDS = ["/help", "/status", "/info"];
 
 // Adicionar middleware JSON antes de iniciar o servidor
 metricsApp.use(express.json());
@@ -71,6 +75,9 @@ wss.on("connection", (ws, req) => {
     });
   }
 
+  // Rastrear último comando enviado para esta conexão
+  let lastCommandTime = 0;
+
   // Simular envio de mensagens para os clientes conectados
   const messageInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
@@ -84,16 +91,33 @@ wss.on("connection", (ws, req) => {
         return;
       }
 
+      const now = Date.now();
+      const timeSinceLastCommand = now - lastCommandTime;
+      const shouldSendCommand = timeSinceLastCommand >= COMMAND_INTERVAL_MS;
+
+      // Decidir se envia comando ou mensagem normal
+      let content;
+      if (shouldSendCommand) {
+        // Selecionar comando aleatório da lista
+        const randomCommand = AVAILABLE_COMMANDS[Math.floor(Math.random() * AVAILABLE_COMMANDS.length)];
+        content = randomCommand;
+        lastCommandTime = now;
+        logger.info("Sending command", { connectionId, command: randomCommand });
+      } else {
+        content = `Test message ${now}`;
+      }
+
       // Simular mensagem para enviar aos clientes
       const message = {
-        id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `msg_${now}_${Math.random().toString(36).substr(2, 9)}`,
         timestamp: new Date().toISOString(),
         sender: `sender_${Math.floor(Math.random() * 1000000000)}@example.com`,
         type: "text",
-        content: `Test message ${Date.now()}`,
+        content: content,
         raw_payload: {
           simulated: true,
           chaos_socket: true,
+          is_command: shouldSendCommand,
           delay: Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS) + MIN_DELAY_MS
         }
       };
