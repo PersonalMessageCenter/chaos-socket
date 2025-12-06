@@ -143,10 +143,11 @@ wss.on("connection", (ws, req) => {
   }, MESSAGE_RATE);
 
   // Receber mensagens dos clientes (ex: confirmações, comandos)
+  // NOTA: Não contamos essas mensagens em messagesReceived porque essa métrica
+  // é apenas para requests HTTP recebidos do Locust via API
   ws.on("message", (msg) => {
     try {
       const message = JSON.parse(msg.toString());
-      messagesReceived.inc({ status: "received" });
       
       logger.debug("Message received from client", {
         connectionId,
@@ -161,7 +162,7 @@ wss.on("connection", (ws, req) => {
           try {
             ws.send(JSON.stringify({ type: "ack", originalId: message.id }));
             messageLatency.observe({ status: "success" }, delay / 1000);
-            messagesReceived.inc({ status: "success" });
+            // Não incrementar messagesReceived aqui - essa métrica é apenas para HTTP requests
           } catch (err) {
             errorsTotal.inc({ type: "send_error" });
             logger.error("Error sending ACK", {
