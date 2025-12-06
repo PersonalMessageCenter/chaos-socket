@@ -109,7 +109,7 @@ wss.on("connection", (ws, req) => {
 
       // Simular mensagem para enviar aos clientes
       const message = {
-        id: `msg_${now}_${Math.random().toString(36).substr(2, 9)}`,
+        id: `msg_${now}_${Math.random().toString(36).slice(2, 11)}`,
         timestamp: new Date().toISOString(),
         sender: `sender_${Math.floor(Math.random() * 1000000000)}@example.com`,
         type: "text",
