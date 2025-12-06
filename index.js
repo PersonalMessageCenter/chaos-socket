@@ -237,10 +237,20 @@ metricsApp.post("/api/send-message", (req, res) => {
   activeConnectionsMap.forEach((ws, id) => {
     if (!connectionId || id === connectionId) {
       if (ws.readyState === WebSocket.OPEN) {
+        const startTime = Date.now();
         try {
           ws.send(JSON.stringify(message));
+          const latency = (Date.now() - startTime) / 1000;
+          
+          // Incrementar métricas para mensagens enviadas via API HTTP
+          messageLatency.observe({ status: "success" }, latency);
+          messagesReceived.inc({ status: "sent" });
           sent++;
         } catch (err) {
+          const latency = (Date.now() - startTime) / 1000;
+          messageLatency.observe({ status: "error" }, latency);
+          messagesReceived.inc({ status: "error" });
+          errorsTotal.inc({ type: "send_error" });
           logger.error("Error sending message via API", { error: err.message });
         }
       }
