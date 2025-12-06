@@ -23,11 +23,19 @@ const messagesSent = new client.Counter({
 });
 register.registerMetric(messagesSent);
 
-// Contador de mensagens recebidas (via API HTTP do Locust)
+// Contador de mensagens enviadas via HTTP API (diferente de WebSocket)
+const messagesSentViaAPI = new client.Counter({
+  name: "chaos_socket_messages_sent_via_api_total",
+  help: "Total number of messages sent via HTTP API endpoint",
+  labelNames: ["status"]
+});
+register.registerMetric(messagesSentViaAPI);
+
+// Contador de mensagens recebidas
 const messagesReceived = new client.Counter({
   name: "chaos_socket_messages_received_total",
-  help: "Total number of messages received via HTTP API (from Locust)",
-  labelNames: ["status"]
+  help: "Total number of messages received",
+  labelNames: ["flow"]
 });
 register.registerMetric(messagesReceived);
 
@@ -70,6 +78,7 @@ module.exports = {
   messageLatency,
   messagesReceived, // Mensagens recebidas via API HTTP (do Locust)
   messagesSent,     // Mensagens enviadas via WebSocket (para clientes)
+  messagesSentViaAPI, // Mensagens enviadas via HTTP API
   connectionsTotal,
   activeConnections,
   errorsTotal,

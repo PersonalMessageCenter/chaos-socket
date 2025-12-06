@@ -3,13 +3,13 @@ const {
   messageLatency, 
   messagesReceived,
   messagesSent,
+  messagesSentViaAPI,
   connectionsTotal, 
   activeConnections,
   errorsTotal,
   metricsApp 
 } = require("./metrics");
 const express = require("express");
-const apiApp = metricsApp; // Reusar o mesmo app do metrics
 const logger = require("./logger");
 
 const WS_PORT = process.env.WS_PORT || 4001;
@@ -21,13 +21,8 @@ const MIN_DELAY_MS = parseInt(process.env.MIN_DELAY_MS || "0");
 const MESSAGE_RATE = parseInt(process.env.MESSAGE_RATE || "12000"); // ms entre mensagens automáticas (padrão: 5 msg/min = 12000ms)
 const COMMAND_INTERVAL_MS = parseInt(process.env.COMMAND_INTERVAL_MS || "60000"); // 1 minuto entre comandos
 
-// Lista de comandos disponíveis
-const AVAILABLE_COMMANDS = ["/help", "/status", "/info"];
 
-// Adicionar middleware JSON antes de iniciar o servidor
 metricsApp.use(express.json());
-
-// Servidor de métricas
 metricsApp.listen(METRICS_PORT, () => {
   logger.info("Metrics server started", { port: METRICS_PORT });
 });
@@ -43,7 +38,6 @@ wss.on("listening", () => {
   });
 });
 
-// Armazenar conexões ativas
 const activeConnectionsMap = new Map();
 
 wss.on("connection", (ws, req) => {
@@ -60,7 +54,6 @@ wss.on("connection", (ws, req) => {
     activeConnections: activeConnectionsMap.size
   });
 
-  // Enviar mensagem de boas-vindas/confirmação de conexão
   try {
     ws.send(JSON.stringify({
       type: "connection",
@@ -68,46 +61,27 @@ wss.on("connection", (ws, req) => {
       timestamp: new Date().toISOString()
     }));
   } catch (err) {
+    errorsTotal.inc({ type: "connection_confirmation_error" });
     logger.error("Error sending connection confirmation", {
       connectionId,
       error: err.message
     });
   }
 
-  // Rastrear último comando enviado para esta conexão
-  let lastCommandTime = 0;
-
-  // Simular envio de mensagens para os clientes conectados
+  // Simulation
   const messageInterval = setInterval(() => {
     if (ws.readyState === WebSocket.OPEN) {
       const now = Date.now();
-      const timeSinceLastCommand = now - lastCommandTime;
-      const shouldSendCommand = timeSinceLastCommand >= COMMAND_INTERVAL_MS;
 
-      // Decidir se envia comando ou mensagem normal
-      let content;
-      if (shouldSendCommand) {
-        // Selecionar comando aleatório da lista
-        const randomCommand = AVAILABLE_COMMANDS[Math.floor(Math.random() * AVAILABLE_COMMANDS.length)];
-        content = randomCommand;
-        lastCommandTime = now;
-        logger.info("Sending command", { connectionId, command: randomCommand });
-      } else {
-        content = `Test message ${now}`;
-      }
-
-      // Simular mensagem para enviar aos clientes
       const message = {
         id: `msg_${now}_${Math.random().toString(36).slice(2, 11)}`,
         timestamp: new Date().toISOString(),
         sender: `sender_${Math.floor(Math.random() * 1000000000)}@example.com`,
         type: "text",
-        content: content,
+        content: `Test message ${now}`,
         raw_payload: {
           simulated: true,
-          chaos_socket: true,
-          is_command: shouldSendCommand,
-          delay: Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS) + MIN_DELAY_MS
+          chaos_socket: true
         }
       };
 
@@ -128,7 +102,6 @@ wss.on("connection", (ws, req) => {
       } catch (err) {
         const latency = (Date.now() - startTime) / 1000;
         messageLatency.observe({ status: "error" }, latency);
-        messagesSent.inc({ status: "error" });
         errorsTotal.inc({ type: "send_error" });
         logger.error("Error sending simulated message", {
           connectionId,
@@ -173,6 +146,7 @@ wss.on("connection", (ws, req) => {
         }, delay);
       }
     } catch (err) {
+      errorsTotal.inc({ type: "message_processing_error" });
       logger.error("Error processing message from client", {
         connectionId,
         error: err.message
@@ -226,14 +200,12 @@ metricsApp.post("/api/send-message", (req, res) => {
           
           // Incrementar métricas para mensagens enviadas via API HTTP
           messageLatency.observe({ status: "success" }, latency);
-          messagesReceived.inc({ status: "received" }); // Recebida via API HTTP
-          messagesSent.inc({ status: "success" }); // Enviada via WebSocket
+          messagesSentViaAPI.inc({ status: "success" });
           sent++;
         } catch (err) {
           const latency = (Date.now() - startTime) / 1000;
           messageLatency.observe({ status: "error" }, latency);
-          messagesReceived.inc({ status: "received" }); // Recebida via API HTTP
-          messagesSent.inc({ status: "error" }); // Falha ao enviar via WebSocket
+          // Don't increment messagesSentViaAPI on error - message was not successfully sent
           errorsTotal.inc({ type: "send_error" });
           logger.error("Error sending message via API", { error: err.message });
         }
@@ -255,8 +227,6 @@ metricsApp.get("/api/status", (req, res) => {
     messageRate: `${MESSAGE_RATE}ms`
   });
 });
-
-// API endpoints já estão no mesmo app do metrics, não precisa iniciar outro servidor
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
@@ -287,6 +257,7 @@ process.on("SIGINT", () => {
 
 // Log unhandled errors
 process.on("uncaughtException", (error) => {
+  errorsTotal.inc({ type: "uncaught_exception" });
   logger.error("Uncaught exception", {
     error: error.message,
     stack: error.stack
@@ -295,6 +266,7 @@ process.on("uncaughtException", (error) => {
 });
 
 process.on("unhandledRejection", (reason, promise) => {
+  errorsTotal.inc({ type: "unhandled_rejection" });
   logger.error("Unhandled rejection", {
     reason: reason instanceof Error ? reason.message : reason,
     stack: reason instanceof Error ? reason.stack : undefined
