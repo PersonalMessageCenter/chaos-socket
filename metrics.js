@@ -15,6 +15,15 @@ const messageLatency = new client.Histogram({
 });
 register.registerMetric(messageLatency);
 
+// Histograma para latência de mensagens enviadas via API HTTP
+const messageLatencyViaAPI = new client.Histogram({
+  name: "chaos_socket_message_latency_via_api_seconds",
+  help: "Message processing latency for messages sent via HTTP API in seconds",
+  buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+  labelNames: ["status"]
+});
+register.registerMetric(messageLatencyViaAPI);
+
 // Contador de mensagens enviadas (via WebSocket para clientes)
 const messagesSent = new client.Counter({
   name: "chaos_socket_messages_sent_total",
@@ -30,14 +39,6 @@ const messagesSentViaAPI = new client.Counter({
   labelNames: ["status"]
 });
 register.registerMetric(messagesSentViaAPI);
-
-// Contador de mensagens recebidas
-const messagesReceived = new client.Counter({
-  name: "chaos_socket_messages_received_total",
-  help: "Total number of messages received",
-  labelNames: ["flow"]
-});
-register.registerMetric(messagesReceived);
 
 // Contador de conexões
 const connectionsTotal = new client.Counter({
@@ -76,7 +77,7 @@ metricsApp.get("/metrics", async (req, res) => {
 
 module.exports = {
   messageLatency,
-  messagesReceived, // Mensagens recebidas via API HTTP (do Locust)
+  messageLatencyViaAPI,
   messagesSent,     // Mensagens enviadas via WebSocket (para clientes)
   messagesSentViaAPI, // Mensagens enviadas via HTTP API
   connectionsTotal,

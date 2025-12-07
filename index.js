@@ -1,7 +1,7 @@
 const WebSocket = require("ws");
 const { 
   messageLatency, 
-  messagesReceived,
+  messageLatencyViaAPI,
   messagesSent,
   messagesSentViaAPI,
   connectionsTotal, 
@@ -15,11 +15,7 @@ const logger = require("./logger");
 const WS_PORT = process.env.WS_PORT || 4001;
 const METRICS_PORT = process.env.METRICS_PORT || 9101;
 
-// Configurações de controle de mensagens
-const MAX_DELAY_MS = parseInt(process.env.MAX_DELAY_MS || "200");
-const MIN_DELAY_MS = parseInt(process.env.MIN_DELAY_MS || "0");
 const MESSAGE_RATE = parseInt(process.env.MESSAGE_RATE || "12000"); // ms entre mensagens automáticas (padrão: 5 msg/min = 12000ms)
-const COMMAND_INTERVAL_MS = parseInt(process.env.COMMAND_INTERVAL_MS || "60000"); // 1 minuto entre comandos
 
 
 metricsApp.use(express.json());
@@ -33,7 +29,6 @@ const wss = new WebSocket.Server({ port: WS_PORT });
 wss.on("listening", () => {
   logger.info("Chaos Socket WebSocket server started", {
     port: WS_PORT,
-    delayRange: `${MIN_DELAY_MS}-${MAX_DELAY_MS}ms`,
     messageRate: `${MESSAGE_RATE}ms`
   });
 });
@@ -115,36 +110,14 @@ wss.on("connection", (ws, req) => {
     }
   }, MESSAGE_RATE);
 
-  // Receber mensagens dos clientes (ex: confirmações, comandos)
-  // NOTA: Não contamos essas mensagens em messagesReceived porque essa métrica
-  // é apenas para requests HTTP recebidos do Locust via API
   ws.on("message", (msg) => {
     try {
       const message = JSON.parse(msg.toString());
       
-      logger.debug("Message received from client", {
+      logger.info("Message received from client", {
         connectionId,
         messageType: message.type || "unknown"
       });
-
-      // Se for uma requisição de teste de carga (do Locust via API), processar
-      if (message.type === "load_test") {
-        const delay = Math.random() * (MAX_DELAY_MS - MIN_DELAY_MS) + MIN_DELAY_MS;
-        
-        setTimeout(() => {
-          try {
-            ws.send(JSON.stringify({ type: "ack", originalId: message.id }));
-            messageLatency.observe({ status: "success" }, delay / 1000);
-            // Não incrementar messagesReceived aqui - essa métrica é apenas para HTTP requests
-          } catch (err) {
-            errorsTotal.inc({ type: "send_error" });
-            logger.error("Error sending ACK", {
-              connectionId,
-              error: err.message
-            });
-          }
-        }, delay);
-      }
     } catch (err) {
       errorsTotal.inc({ type: "message_processing_error" });
       logger.error("Error processing message from client", {
@@ -180,7 +153,7 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-// API HTTP para Locust gerar carga (opcional) - usar o mesmo app do metrics
+
 metricsApp.post("/api/send-message", (req, res) => {
   const { message, connectionId } = req.body;
   
@@ -188,7 +161,6 @@ metricsApp.post("/api/send-message", (req, res) => {
     return res.status(400).json({ error: "Message is required" });
   }
 
-  // Enviar para todas as conexões ativas ou uma específica
   let sent = 0;
   activeConnectionsMap.forEach((ws, id) => {
     if (!connectionId || id === connectionId) {
@@ -198,14 +170,12 @@ metricsApp.post("/api/send-message", (req, res) => {
           ws.send(JSON.stringify(message));
           const latency = (Date.now() - startTime) / 1000;
           
-          // Incrementar métricas para mensagens enviadas via API HTTP
-          messageLatency.observe({ status: "success" }, latency);
+          messageLatencyViaAPI.observe({ status: "success" }, latency);
           messagesSentViaAPI.inc({ status: "success" });
           sent++;
         } catch (err) {
           const latency = (Date.now() - startTime) / 1000;
-          messageLatency.observe({ status: "error" }, latency);
-          // Don't increment messagesSentViaAPI on error - message was not successfully sent
+          messageLatencyViaAPI.observe({ status: "error" }, latency);
           errorsTotal.inc({ type: "send_error" });
           logger.error("Error sending message via API", { error: err.message });
         }
@@ -223,7 +193,6 @@ metricsApp.post("/api/send-message", (req, res) => {
 metricsApp.get("/api/status", (req, res) => {
   res.json({
     activeConnections: activeConnectionsMap.size,
-    delayRange: `${MIN_DELAY_MS}-${MAX_DELAY_MS}ms`,
     messageRate: `${MESSAGE_RATE}ms`
   });
 });
