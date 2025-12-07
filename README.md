@@ -60,10 +60,11 @@ Retorna status do servidor e conexões ativas.
 ## Métricas Prometheus
 
 ### Latência
-- `chaos_socket_message_latency_seconds` - Histograma de latência de mensagens enviadas via WebSocket
+- `chaos_socket_message_send_latency_seconds` - Histograma de latência de envio de mensagens via WebSocket
 - `chaos_socket_message_latency_via_api_seconds` - Histograma de latência de mensagens enviadas via HTTP API
 
 ### Mensagens
+- `chaos_socket_messages_received_total` - Contador de mensagens recebidas via WebSocket dos clientes (label: flow)
 - `chaos_socket_messages_sent_total` - Contador de mensagens enviadas via WebSocket (label: status)
 - `chaos_socket_messages_sent_via_api_total` - Contador de mensagens enviadas via HTTP API (label: status)
 

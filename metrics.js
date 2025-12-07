@@ -6,10 +6,10 @@ const register = new client.Registry();
 // Coletar métricas padrão do sistema
 client.collectDefaultMetrics({ register });
 
-// Histograma para latência de mensagens
+// Histograma para latência de envio de mensagens via WebSocket
 const messageLatency = new client.Histogram({
-  name: "chaos_socket_message_latency_seconds",
-  help: "Message processing latency in seconds",
+  name: "chaos_socket_message_send_latency_seconds",
+  help: "Message send latency via WebSocket in seconds",
   buckets: [0.01, 0.05, 0.1, 0.2, 0.5, 1, 2, 5],
   labelNames: ["status"]
 });
@@ -23,6 +23,14 @@ const messageLatencyViaAPI = new client.Histogram({
   labelNames: ["status"]
 });
 register.registerMetric(messageLatencyViaAPI);
+
+// Contador de mensagens recebidas (via WebSocket dos clientes)
+const messagesReceived = new client.Counter({
+  name: "chaos_socket_messages_received_total",
+  help: "Total number of messages received from WebSocket clients",
+  labelNames: ["flow"]
+});
+register.registerMetric(messagesReceived);
 
 // Contador de mensagens enviadas (via WebSocket para clientes)
 const messagesSent = new client.Counter({
@@ -78,6 +86,7 @@ metricsApp.get("/metrics", async (req, res) => {
 module.exports = {
   messageLatency,
   messageLatencyViaAPI,
+  messagesReceived,  // Mensagens recebidas via WebSocket (dos clientes)
   messagesSent,     // Mensagens enviadas via WebSocket (para clientes)
   messagesSentViaAPI, // Mensagens enviadas via HTTP API
   connectionsTotal,

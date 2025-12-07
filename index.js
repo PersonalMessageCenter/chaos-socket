@@ -2,6 +2,7 @@ const WebSocket = require("ws");
 const { 
   messageLatency, 
   messageLatencyViaAPI,
+  messagesReceived,
   messagesSent,
   messagesSentViaAPI,
   connectionsTotal, 
@@ -113,10 +114,14 @@ wss.on("connection", (ws, req) => {
   ws.on("message", (msg) => {
     try {
       const message = JSON.parse(msg.toString());
+      const flow = message.type || "default";
+      
+      // Determinar o flow baseado no tipo de mensagem
+      messagesReceived.inc({ flow });
       
       logger.info("Message received from client", {
         connectionId,
-        messageType: message.type || "unknown"
+        flow
       });
     } catch (err) {
       errorsTotal.inc({ type: "message_processing_error" });
