@@ -1,0 +1,31 @@
+# Perfil: Moderate
+# Usuário comum, uso equilibrado
+
+name: Moderate
+description: Usuário comum, uso equilibrado do WhatsApp
+
+timing:
+  messages_per_minute: 2
+  burst_probability: 0.15
+  burst_size:
+    min: 3
+    max: 6
+  typing_delay_ms:
+    min: 1000
+    max: 3000
+  read_delay_ms:
+    min: 2000
+    max: 10000
+
+presence:
+  online_probability: 0.6
+  status_change_interval_ms: 45000
+
+sender:
+  count: 50
+
+message_types:
+  text: 0.80
+  image: 0.12
+  audio: 0.05
+  document: 0.03

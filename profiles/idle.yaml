@@ -1,0 +1,30 @@
+# Perfil: Idle
+# Usuário inativo, poucas mensagens por hora
+
+name: Idle
+description: Usuário inativo, poucas mensagens por hora
+
+timing:
+  messages_per_minute: 0.5
+  burst_probability: 0.05
+  burst_size:
+    min: 2
+    max: 3
+  typing_delay_ms:
+    min: 2000
+    max: 5000
+  read_delay_ms:
+    min: 5000
+    max: 30000
+
+presence:
+  online_probability: 0.3
+  status_change_interval_ms: 60000
+
+sender:
+  count: 5
+
+message_types:
+  text: 0.95
+  image: 0.04
+  audio: 0.01

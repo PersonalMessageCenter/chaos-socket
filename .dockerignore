@@ -1,0 +1,35 @@
+# Dependencies (will be installed in container)
+node_modules/
+
+# Test files
+*.test.js
+jest.config.js
+coverage/
+.nyc_output/
+
+# Git
+.git/
+.github/
+.gitignore
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+
+# Environment files
+.env
+.env.*
+
+# Documentation (not needed in container)
+README.md
+CHANGELOG.md
+
+# OS files
+.DS_Store
+Thumbs.db
+

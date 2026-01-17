@@ -1,0 +1,31 @@
+# Perfil: Busy
+# Usuário ativo, muitos grupos e conversas
+
+name: Busy
+description: Usuário ativo com muitos grupos e conversas simultâneas
+
+timing:
+  messages_per_minute: 8
+  burst_probability: 0.3
+  burst_size:
+    min: 5
+    max: 15
+  typing_delay_ms:
+    min: 500
+    max: 1500
+  read_delay_ms:
+    min: 1000
+    max: 5000
+
+presence:
+  online_probability: 0.85
+  status_change_interval_ms: 30000
+
+sender:
+  count: 1000
+
+message_types:
+  text: 0.70
+  image: 0.15
+  audio: 0.10
+  document: 0.05

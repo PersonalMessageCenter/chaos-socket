@@ -5,33 +5,104 @@ Serviço Node.js que simula um servidor WebSocket gerenciável para testes de ca
 ## Características
 
 - Servidor WebSocket que simula comportamento realista de sistemas externos
+- **Perfis de comportamento** configuráveis via YAML (idle, moderate, busy, flood)
 - Envia mensagens automaticamente para clientes conectados
-- Taxa de mensagens configurável via variável de ambiente (controle de carga)
-- Métricas Prometheus expostas em `/metrics`
+- Suporte a diferentes tipos de mensagem (text, image, audio, document, sticker)
 - API HTTP para controle e geração de carga programática
 - Pipeline CI/CD automatizado com GitHub Actions
 
 ## Portas
 
 - `4001` - WebSocket server (padrão)
-- `9101` - Métricas Prometheus e API HTTP (padrão)
+- `9101` - API HTTP (padrão)
+
+## Perfis de Comportamento
+
+Os perfis simulam diferentes padrões de uso do WhatsApp:
+
+| Perfil | Msgs/min | Senders | Descrição |
+|--------|----------|---------|-----------|
+| `idle` | 0.5 | 5 | Usuário inativo, poucas mensagens |
+| `moderate` | 2 | 50 | Usuário comum, uso equilibrado |
+| `busy` | 8 | 1000 | Usuário ativo, muitos grupos e conversas |
+| `flood` | 60 | 10000 | Carga máxima para stress test |
+
+### Estrutura do Perfil (YAML)
+
+```yaml
+name: Busy
+description: Usuário ativo com muitos grupos
+
+timing:
+  messages_per_minute: 8
+  burst_probability: 0.3        # 30% chance de burst
+  burst_size:
+    min: 5
+    max: 15
+  typing_delay_ms:
+    min: 500
+    max: 1500
+  read_delay_ms:
+    min: 1000
+    max: 5000
+
+presence:
+  online_probability: 0.85
+  status_change_interval_ms: 30000
+
+# Sender pool: quantos remetentes únicos existem
+sender:
+  count: 1000
+
+message_types:
+  text: 0.70
+  image: 0.15
+  audio: 0.10
+  document: 0.05
+```
+
+### Documentação Completa
+
+Para detalhes sobre todos os parâmetros de configuração, consulte [CONFIGURATION.md](./CONFIGURATION.md).
 
 ## Variáveis de Ambiente
 
-- `WS_PORT` - Porta do servidor WebSocket (padrão: 4001)
-- `METRICS_PORT` - Porta do servidor de métricas e API (padrão: 9101)
-- `MESSAGE_RATE` - Intervalo entre mensagens automáticas em ms (padrão: 12000 = 5 msg/min). Controla a taxa de carga
-- `LOG_LEVEL` - Nível de log (error, warn, info, verbose, debug, silly, padrão: info)
-- `NODE_ENV` - Ambiente de execução (development, production)
-
-## Como Funciona
-
-1. **Clientes se conectam** ao servidor via WebSocket
-2. **Servidor envia mensagens** simuladas automaticamente para os clientes conectados
-3. **Clientes processam** as mensagens recebidas
-4. **API HTTP** permite gerar carga adicional programaticamente
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `WS_PORT` | 4001 | Porta do servidor WebSocket |
+| `API_PORT` | 9101 | Porta do servidor API HTTP |
+| `CHAOS_PROFILE` | moderate | Nome do perfil a usar |
+| `LOG_LEVEL` | info | Nível de log (error, warn, info, debug) |
 
 ## API HTTP
+
+### GET /api/status
+Retorna status do servidor com informações do perfil.
+
+```json
+{
+  "activeConnections": 5,
+  "profile": {
+    "name": "busy",
+    "description": "Usuário ativo com muitos grupos",
+    "messagesPerMinute": 8,
+    "messageRate": "7500ms"
+  }
+}
+```
+
+### GET /api/profiles
+Lista perfis disponíveis.
+
+```json
+{
+  "current": "busy",
+  "available": ["idle", "moderate", "busy", "flood"]
+}
+```
+
+### GET /api/profile/:name
+Retorna detalhes de um perfil específico.
 
 ### POST /api/send-message
 Envia uma mensagem para todos os clientes conectados (ou um específico).
@@ -47,61 +118,71 @@ Envia uma mensagem para todos os clientes conectados (ou um específico).
 }
 ```
 
-### GET /api/status
-Retorna status do servidor e conexões ativas.
-
-```json
-{
-  "activeConnections": 5,
-  "messageRate": "12000ms"
-}
-```
-
-## Métricas Prometheus
-
-### Latência
-- `chaos_socket_message_send_latency_seconds` - Histograma de latência de envio de mensagens via WebSocket
-- `chaos_socket_message_latency_via_api_seconds` - Histograma de latência de mensagens enviadas via HTTP API
-
-### Mensagens
-- `chaos_socket_messages_received_total` - Contador de mensagens recebidas via WebSocket dos clientes (label: flow)
-- `chaos_socket_messages_sent_total` - Contador de mensagens enviadas via WebSocket (label: status)
-- `chaos_socket_messages_sent_via_api_total` - Contador de mensagens enviadas via HTTP API (label: status)
-
-### Conexões
-- `chaos_socket_connections_total` - Contador total de conexões (label: event)
-- `chaos_socket_active_connections` - Gauge de conexões ativas
-
-### Erros
-- `chaos_socket_errors_total` - Contador de erros (label: type)
-
 ## Uso
 
+### Desenvolvimento Local
+
 ```bash
-# Desenvolvimento
+# Instalar dependências
 npm install
+
+# Executar com perfil padrão (moderate)
 npm start
 
-# Docker
+# Executar com perfil específico
+CHAOS_PROFILE=busy npm start
+
+# Executar testes
+npm test
+```
+
+### Docker
+
+```bash
+# Build
 docker build -t chaos-socket .
+
+# Executar com perfil padrão
 docker run -p 4001:4001 -p 9101:9101 chaos-socket
 
-# Docker com variáveis customizadas
+# Executar com perfil busy
 docker run -p 4001:4001 -p 9101:9101 \
-  -e MESSAGE_RATE=5000 \
-  -e LOG_LEVEL=debug \
+  -e CHAOS_PROFILE=busy \
   chaos-socket
+```
+
+### Via wpp-infra (Docker Compose)
+
+```bash
+# Iniciar com perfil padrão
+make chaos
+
+# Iniciar com perfis específicos
+make chaos-idle
+make chaos-moderate
+make chaos-busy
+make chaos-flood
+
+# Ver logs
+make chaos-logs
+
+# Parar
+make chaos-down
 ```
 
 ## Roadmap
 
-### v2.0.0 (Próxima versão maior)
-- [ ] Interface web simples para gerenciamento do socket
-- [ ] Banco de dados SQLite para persistência de configurações
-- [ ] API REST para gerenciamento de configurações
-- [ ] Histórico de configurações e métricas
+### ✅ Implementado
+- Perfis de comportamento via YAML
+- Diferentes tipos de mensagem
+- Burst de mensagens
+- Pool de senders configurável
+- API para listar e consultar perfis
+- Documentação completa de configuração
 
-### Futuro
-- [ ] Múltiplos perfis de carga configuráveis
+### 🚧 Próximos Passos
+- [ ] Perfis customizados via API
+- [ ] Interface web para gerenciamento
+- [ ] Mudança de perfil em runtime via API
+- [ ] Histórico de configurações e métricas
 - [ ] Simulação de falhas e recuperação
-- [ ] Integração com sistemas de monitoramento externos
