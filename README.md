@@ -1,107 +1,143 @@
 # Chaos Socket
 
-Serviço Node.js que simula um servidor WebSocket gerenciável para testes de carga e simulação de comportamento realista de sistemas distribuídos.
+Simulador WebSocket para testes de carga e comportamento de sistemas de mensagens distribuídos.
 
 ## Características
 
-- Servidor WebSocket que simula comportamento realista de sistemas externos
-- Envia mensagens automaticamente para clientes conectados
-- Taxa de mensagens configurável via variável de ambiente (controle de carga)
-- Métricas Prometheus expostas em `/metrics`
-- API HTTP para controle e geração de carga programática
-- Pipeline CI/CD automatizado com GitHub Actions
+- Servidor WebSocket com geração automática de eventos
+- **Perfis de comportamento** configuráveis via YAML
+- **8 tipos de eventos** (message, typing, read, delivered, presence, reaction, edit, delete)
+- **6 tipos de conteúdo** (text, image, audio, video, file, sticker)
+- API HTTP para controle e injeção de eventos
+- Suporte a bursts e pools de senders
 
 ## Portas
 
-- `4001` - WebSocket server (padrão)
-- `9101` - Métricas Prometheus e API HTTP (padrão)
+| Porta | Serviço |
+|-------|---------|
+| `4001` | WebSocket |
+| `9101` | API HTTP |
+
+## Eventos
+
+| Evento | Descrição |
+|--------|-----------|
+| `message` | Nova mensagem |
+| `typing` | Indicador de digitação |
+| `read` | Confirmação de leitura |
+| `delivered` | Confirmação de entrega |
+| `presence` | Status online/offline |
+| `reaction` | Reação a mensagem |
+| `edit` | Edição de mensagem |
+| `delete` | Exclusão de mensagem |
+
+## Perfis
+
+| Perfil | Msgs/min | Senders | Descrição |
+|--------|----------|---------|-----------|
+| `idle` | 0.5 | 5 | Usuário inativo |
+| `moderate` | 2 | 50 | Uso equilibrado (padrão) |
+| `busy` | 8 | 1000 | Power user |
+| `flood` | 60 | 10000 | Stress test |
+
+Ver detalhes em [CONFIGURATION.md](./CONFIGURATION.md).
 
 ## Variáveis de Ambiente
 
-- `WS_PORT` - Porta do servidor WebSocket (padrão: 4001)
-- `METRICS_PORT` - Porta do servidor de métricas e API (padrão: 9101)
-- `MESSAGE_RATE` - Intervalo entre mensagens automáticas em ms (padrão: 12000 = 5 msg/min). Controla a taxa de carga
-- `LOG_LEVEL` - Nível de log (error, warn, info, verbose, debug, silly, padrão: info)
-- `NODE_ENV` - Ambiente de execução (development, production)
-
-## Como Funciona
-
-1. **Clientes se conectam** ao servidor via WebSocket
-2. **Servidor envia mensagens** simuladas automaticamente para os clientes conectados
-3. **Clientes processam** as mensagens recebidas
-4. **API HTTP** permite gerar carga adicional programaticamente
+| Variável | Padrão | Descrição |
+|----------|--------|-----------|
+| `WS_PORT` | 4001 | Porta WebSocket |
+| `API_PORT` | 9101 | Porta API HTTP |
+| `CHAOS_PROFILE` | moderate | Perfil a usar |
+| `LOG_LEVEL` | info | Nível de log |
 
 ## API HTTP
 
-### POST /api/send-message
-Envia uma mensagem para todos os clientes conectados (ou um específico).
-
-```json
-{
-  "message": {
-    "id": "msg_123",
-    "type": "text",
-    "content": "Test message"
-  },
-  "connectionId": "optional-connection-id"
-}
-```
-
 ### GET /api/status
-Retorna status do servidor e conexões ativas.
 
 ```json
 {
   "activeConnections": 5,
-  "messageRate": "12000ms"
+  "profile": {
+    "name": "busy",
+    "messagesPerMinute": 8,
+    "events": { "message": 0.40, "typing": 0.15 },
+    "messageTypes": { "text": 0.65, "image": 0.15 }
+  }
 }
 ```
 
-## Métricas Prometheus
+### GET /api/events
 
-### Latência
-- `chaos_socket_message_send_latency_seconds` - Histograma de latência de envio de mensagens via WebSocket
-- `chaos_socket_message_latency_via_api_seconds` - Histograma de latência de mensagens enviadas via HTTP API
+```json
+{
+  "available": ["message", "typing", "read", "delivered", "presence", "reaction", "edit", "delete"],
+  "current_distribution": { "message": 0.40, "typing": 0.15 }
+}
+```
 
-### Mensagens
-- `chaos_socket_messages_received_total` - Contador de mensagens recebidas via WebSocket dos clientes (label: flow)
-- `chaos_socket_messages_sent_total` - Contador de mensagens enviadas via WebSocket (label: status)
-- `chaos_socket_messages_sent_via_api_total` - Contador de mensagens enviadas via HTTP API (label: status)
+### GET /api/profiles
 
-### Conexões
-- `chaos_socket_connections_total` - Contador total de conexões (label: event)
-- `chaos_socket_active_connections` - Gauge de conexões ativas
+```json
+{
+  "current": "busy",
+  "available": ["idle", "moderate", "busy", "flood"]
+}
+```
 
-### Erros
-- `chaos_socket_errors_total` - Contador de erros (label: type)
+### POST /api/send-event
+
+```json
+{
+  "event": { "event": "message", "sender": "user@example.com", "content": "Hello" },
+  "connectionId": "optional"
+}
+```
 
 ## Uso
 
 ```bash
-# Desenvolvimento
+# Instalar
 npm install
+
+# Executar
 npm start
 
-# Docker
-docker build -t chaos-socket .
-docker run -p 4001:4001 -p 9101:9101 chaos-socket
+# Com perfil específico
+CHAOS_PROFILE=busy npm start
 
-# Docker com variáveis customizadas
-docker run -p 4001:4001 -p 9101:9101 \
-  -e MESSAGE_RATE=5000 \
-  -e LOG_LEVEL=debug \
-  chaos-socket
+# Testes
+npm test
+```
+
+### Docker
+
+```bash
+docker build -t chaos-socket .
+docker run -p 4001:4001 -p 9101:9101 -e CHAOS_PROFILE=busy chaos-socket
+```
+
+## Cliente WebSocket
+
+```javascript
+const ws = new WebSocket('ws://localhost:4001');
+
+ws.on('message', (data) => {
+  const event = JSON.parse(data);
+  console.log(event.event, event.sender || event.user, event.content || event.status);
+});
 ```
 
 ## Roadmap
 
-### v2.0.0 (Próxima versão maior)
-- [ ] Interface web simples para gerenciamento do socket
-- [ ] Banco de dados SQLite para persistência de configurações
-- [ ] API REST para gerenciamento de configurações
-- [ ] Histórico de configurações e métricas
+Implementado:
+- Perfis de comportamento via YAML
+- 8 tipos de eventos genéricos
+- 6 tipos de conteúdo
+- Burst de mensagens
+- Pool de senders configurável
 
-### Futuro
-- [ ] Múltiplos perfis de carga configuráveis
-- [ ] Simulação de falhas e recuperação
-- [ ] Integração com sistemas de monitoramento externos
+Próximos passos:
+- Mudança de perfil em runtime
+- Interface web
+- Simulação de falhas
