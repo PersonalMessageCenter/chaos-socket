@@ -1,0 +1,22 @@
+# Chaos Socket - Simulador WebSocket para testes de carga
+# Execute separadamente do ecossistema wpp-infra
+
+services:
+  chaos-socket:
+    build: .
+    container_name: chaos-socket
+    environment:
+      WS_PORT: 4001
+      API_PORT: 9101
+      CHAOS_PROFILE: ${CHAOS_PROFILE:-moderate}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    ports:
+      - "4001:4001"
+      - "9101:9101"
+    volumes:
+      - ./profiles:/app/profiles:ro
+
+# Uso:
+#   docker compose up                    # perfil moderate (padrão)
+#   CHAOS_PROFILE=busy docker compose up # perfil busy
+#   CHAOS_PROFILE=flood docker compose up # stress test

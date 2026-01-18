@@ -96,21 +96,26 @@ Ver detalhes em [CONFIGURATION.md](./CONFIGURATION.md).
 
 ## Uso
 
+### Desenvolvimento Local
+
 ```bash
-# Instalar
 npm install
-
-# Executar
-npm start
-
-# Com perfil específico
-CHAOS_PROFILE=busy npm start
-
-# Testes
-npm test
+npm start                      # perfil moderate
+CHAOS_PROFILE=busy npm start   # perfil busy
+npm test                       # testes
 ```
 
-### Docker
+### Docker Compose
+
+```bash
+make up          # perfil moderate
+make busy        # perfil busy
+make flood       # stress test
+make down        # parar
+make status      # ver status
+```
+
+### Docker Manual
 
 ```bash
 docker build -t chaos-socket .
