@@ -1,16 +1,24 @@
 # Perfil: Flood
-# Carga máxima para stress test
+# Carga máxima para stress test. NÃO representa uso real.
+#
+# Casos de uso:
+#   - Descobrir limites do sistema
+#   - Teste de throughput máximo
+#   - Validação de rate limiting
+#   - Teste de recuperação sob pressão
+#
+# CUIDADO: Use com moderação em produção!
 
 name: Flood
 description: Carga máxima para testes de stress e throughput
 
 timing:
-  messages_per_minute: 60
-  burst_probability: 0.5
+  messages_per_minute: 60     # 1 msg por segundo
+  burst_probability: 0.5      # Rajadas constantes
   burst_size:
     min: 10
     max: 30
-  typing_delay_ms:
+  typing_delay_ms:            # Quase instantâneo
     min: 0
     max: 100
   read_delay_ms:
@@ -18,11 +26,27 @@ timing:
     max: 500
 
 presence:
-  online_probability: 1.0
+  online_probability: 1.0     # Sempre online
   status_change_interval_ms: 0
 
 sender:
-  count: 10000
+  count: 10000                # Pool gigante
 
+# Foco em mensagens para maximizar carga
+events:
+  message: 0.70
+  typing: 0.05
+  read: 0.10
+  delivered: 0.08
+  presence: 0.02
+  reaction: 0.03
+  edit: 0.01
+  delete: 0.01
+
+# Texto é mais leve, mas mantém variedade
 message_types:
-  text: 1.0
+  text: 0.85
+  image: 0.08
+  audio: 0.04
+  video: 0.02
+  sticker: 0.01

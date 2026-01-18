@@ -1,30 +1,46 @@
 # Perfil: Idle
-# Usuário inativo, poucas mensagens por hora
+# Simula usuário inativo que raramente interage.
+#
+# Casos de uso:
+#   - Teste de timeout/keepalive
+#   - Conexões background
+#   - Validação de heartbeat
 
 name: Idle
 description: Usuário inativo, poucas mensagens por hora
 
 timing:
-  messages_per_minute: 0.5
-  burst_probability: 0.05
+  messages_per_minute: 0.5    # 1 msg a cada 2 min
+  burst_probability: 0.05     # Raramente tem bursts
   burst_size:
     min: 2
     max: 3
-  typing_delay_ms:
+  typing_delay_ms:            # Demora para responder
     min: 2000
     max: 5000
-  read_delay_ms:
+  read_delay_ms:              # Demora para ler
     min: 5000
     max: 30000
 
 presence:
-  online_probability: 0.3
+  online_probability: 0.3     # Offline na maior parte
   status_change_interval_ms: 60000
 
 sender:
-  count: 5
+  count: 5                    # Poucos contatos
+
+events:
+  message: 0.50
+  typing: 0.05
+  read: 0.25                  # Lê mais do que responde
+  delivered: 0.15
+  presence: 0.05
+  reaction: 0.00
+  edit: 0.00
+  delete: 0.00
 
 message_types:
-  text: 0.95
-  image: 0.04
-  audio: 0.01
+  text: 0.92                  # Quase só texto
+  image: 0.05
+  audio: 0.02
+  video: 0.01

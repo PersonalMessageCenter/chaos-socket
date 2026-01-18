@@ -1,16 +1,22 @@
 # Perfil: Busy
-# Usuário ativo, muitos grupos e conversas
+# Simula power user com múltiplas conversas simultâneas.
+# Representa admins de grupos ou profissionais.
+#
+# Casos de uso:
+#   - Teste de carga moderada/alta
+#   - Simulação de power users
+#   - Validação de throughput
 
 name: Busy
 description: Usuário ativo com muitos grupos e conversas simultâneas
 
 timing:
-  messages_per_minute: 8
-  burst_probability: 0.3
+  messages_per_minute: 8      # Conversa muito ativa
+  burst_probability: 0.3      # Rajadas frequentes
   burst_size:
     min: 5
     max: 15
-  typing_delay_ms:
+  typing_delay_ms:            # Digitação rápida
     min: 500
     max: 1500
   read_delay_ms:
@@ -18,14 +24,26 @@ timing:
     max: 5000
 
 presence:
-  online_probability: 0.85
+  online_probability: 0.85    # Quase sempre disponível
   status_change_interval_ms: 30000
 
 sender:
-  count: 1000
+  count: 1000                 # Muitos grupos e contatos
+
+events:
+  message: 0.40
+  typing: 0.15
+  read: 0.18
+  delivered: 0.10
+  presence: 0.05
+  reaction: 0.08              # Usa bastante reação
+  edit: 0.03
+  delete: 0.01
 
 message_types:
-  text: 0.70
+  text: 0.65
   image: 0.15
-  audio: 0.10
-  document: 0.05
+  audio: 0.08
+  video: 0.05
+  file: 0.04
+  sticker: 0.03

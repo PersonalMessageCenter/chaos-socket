@@ -1,11 +1,17 @@
-# Perfil: Moderate
-# Usuário comum, uso equilibrado
+# Perfil: Moderate (padrão)
+# Simula usuário comum com uso equilibrado.
+# Representa o comportamento típico da maioria.
+#
+# Casos de uso:
+#   - Testes de carga baseline
+#   - Simulação de uso típico
+#   - Validação de fluxos normais
 
 name: Moderate
-description: Usuário comum, uso equilibrado do WhatsApp
+description: Usuário comum, uso equilibrado
 
 timing:
-  messages_per_minute: 2
+  messages_per_minute: 2      # Ritmo conversacional normal
   burst_probability: 0.15
   burst_size:
     min: 3
@@ -18,14 +24,26 @@ timing:
     max: 10000
 
 presence:
-  online_probability: 0.6
+  online_probability: 0.6     # Alterna ao longo do dia
   status_change_interval_ms: 45000
 
 sender:
-  count: 50
+  count: 50                   # Rede social típica
+
+events:
+  message: 0.45
+  typing: 0.12
+  read: 0.20
+  delivered: 0.10
+  presence: 0.05
+  reaction: 0.05
+  edit: 0.02
+  delete: 0.01
 
 message_types:
-  text: 0.80
-  image: 0.12
+  text: 0.78
+  image: 0.10
   audio: 0.05
-  document: 0.03
+  video: 0.03
+  file: 0.02
+  sticker: 0.02
