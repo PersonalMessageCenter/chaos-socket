@@ -2,9 +2,31 @@
 # Execute separadamente do ecossistema wpp-infra
 
 services:
-  chaos-socket:
+  # ============================================
+  # Dev - Build local
+  # ============================================
+  chaos-socket-dev:
+    profiles: [dev]
     build: .
-    container_name: chaos-socket
+    container_name: chaos-socket-dev
+    environment:
+      WS_PORT: 4001
+      API_PORT: 9101
+      CHAOS_PROFILE: ${CHAOS_PROFILE:-moderate}
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+    ports:
+      - "4001:4001"
+      - "9101:9101"
+    volumes:
+      - ./profiles:/app/profiles:ro
+
+  # ============================================
+  # Prod - Imagem do GHCR
+  # ============================================
+  chaos-socket-prod:
+    profiles: [prod]
+    image: ${IMAGE_REGISTRY:-ghcr.io}/${IMAGE_PREFIX:-personalmessagecenter/}chaos-socket:1.0.0
+    container_name: chaos-socket-prod
     environment:
       WS_PORT: 4001
       API_PORT: 9101
@@ -16,7 +38,20 @@ services:
     volumes:
       - ./profiles:/app/profiles:ro
 
-# Uso:
-#   docker compose up                    # perfil moderate (padrão)
-#   CHAOS_PROFILE=busy docker compose up # perfil busy
-#   CHAOS_PROFILE=flood docker compose up # stress test
+# ============================================
+# Uso
+# ============================================
+# Dev (build local):
+#   docker compose --profile dev up
+#   CHAOS_PROFILE=busy docker compose --profile dev up
+#
+# Prod (imagem GHCR):
+#   docker compose --profile prod up
+#   docker compose --profile prod pull  # atualizar imagem
+#
+# Variáveis de ambiente (.env):
+#   IMAGE_REGISTRY=ghcr.io
+#   IMAGE_PREFIX=personalmessagecenter/
+#   IMAGE_TAG=1.0.0
+#   CHAOS_PROFILE=moderate|busy|flood
+#   LOG_LEVEL=info|debug
